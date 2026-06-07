@@ -59,6 +59,18 @@ func TestMarkdownBlocksTreatsBareImagePathAsImage(t *testing.T) {
 	}
 }
 
+func TestMarkdownBlocksNormalizesWindowsSeparators(t *testing.T) {
+	cfg := defaultConfig()
+	blocks := markdownBlocks("![diagram](images\\flow.png)", cfg, "/vault/note-dir")
+
+	if len(blocks) != 1 {
+		t.Fatalf("block count = %d, want 1", len(blocks))
+	}
+	if got, want := blocks[0].ImagePath, "/vault/note-dir/images/flow.png"; got != want {
+		t.Fatalf("image path = %q, want %q", got, want)
+	}
+}
+
 func TestMarkdownBlocksParsesTables(t *testing.T) {
 	cfg := defaultConfig()
 	blocks := markdownBlocks("| A | B |\n| --- | --- |\n| 1 | 2 |", cfg, "")

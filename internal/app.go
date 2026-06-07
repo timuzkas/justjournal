@@ -1158,7 +1158,7 @@ func (ui *journalUI) loadPreviewImage(path string) previewImage {
 	if img, ok := ui.imageCache[path]; ok {
 		return img
 	}
-	file, err := os.Open(path)
+	file, err := os.Open(filepath.FromSlash(path))
 	if err != nil {
 		img := previewImage{err: err}
 		ui.imageCache[path] = img
@@ -1451,7 +1451,7 @@ func (ui *journalUI) applySelectedImageSize(width int) {
 	if path == "" {
 		path = selected
 	}
-	replacement := fmt.Sprintf("![image](%s){w=%d}", strings.Trim(path, `"'`), width)
+	replacement := fmt.Sprintf("![image](%s){w=%d}", normalizeImagePath(path), width)
 	if ui.editor.SelectionLen() > 0 {
 		ui.editor.Delete(1)
 	}
@@ -1477,6 +1477,7 @@ func (ui *journalUI) pickSelectedImagePath() {
 	if rel, err := filepath.Rel(filepath.Dir(ui.doc.Path), path); err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
 		replacement = rel
 	}
+	replacement = normalizeImagePath(replacement)
 	if ui.editor.SelectionLen() > 0 {
 		ui.editor.Delete(1)
 	}
@@ -1738,7 +1739,7 @@ func imageBlock(alt, path string, width int, baseDir string, muted color.NRGBA, 
 	resolved := resolveImagePath(path, baseDir)
 	label := alt
 	if label == "" {
-		label = filepath.Base(path)
+		label = filepath.Base(normalizeImagePath(path))
 	}
 	return previewBlock{
 		Text:       "Image: " + label,
@@ -1765,6 +1766,7 @@ func parseMarkdownImage(s string) (alt, path string, width int, ok bool) {
 	if path == "" || strings.HasPrefix(path, "http://") || strings.HasPrefix(path, "https://") {
 		return "", "", 0, false
 	}
+	path = normalizeImagePath(path)
 	width = parseImageWidthSuffix(strings.TrimSpace(s[closePath+1:]))
 	return alt, path, width, true
 }
@@ -1778,15 +1780,18 @@ func parseBareImagePath(s string) (path string, width int, ok bool) {
 	if !isImageFilePath(path) {
 		return "", 0, false
 	}
-	return path, width, true
+	return normalizeImagePath(path), width, true
 }
 
 func resolveImagePath(path, baseDir string) string {
-	path = strings.Trim(path, ` "'`)
-	if filepath.IsAbs(path) {
+	path = normalizeImagePath(path)
+	if path == "" {
+		return ""
+	}
+	if isAbsoluteImagePath(path) {
 		return path
 	}
-	return filepath.Join(baseDir, path)
+	return normalizeImagePath(filepath.Join(baseDir, filepath.FromSlash(path)))
 }
 
 func isImageFilePath(s string) bool {
@@ -2116,13 +2121,13 @@ func parseImageWidthSuffix(s string) int {
 
 func extractImagePath(s string) string {
 	if _, path, _, ok := parseMarkdownImage(strings.TrimSpace(s)); ok {
-		return path
+		return normalizeImagePath(path)
 	}
 	path, _, ok := parseBareImagePath(s)
 	if ok {
-		return path
+		return normalizeImagePath(path)
 	}
-	return strings.TrimSpace(s)
+	return normalizeImagePath(strings.TrimSpace(s))
 }
 
 func normalizeColor(s, fallback string) string {
@@ -2220,6 +2225,23 @@ func looksLikeImagePath(s string) bool {
 		return true
 	}
 	return strings.Contains(s, "/") || strings.Contains(s, "\\")
+}
+
+func normalizeImagePath(path string) string {
+	path = strings.Trim(path, ` "'`)
+	path = strings.ReplaceAll(path, "\\", "/")
+	if path == "" {
+		return ""
+	}
+	path = filepath.Clean(path)
+	return filepath.ToSlash(path)
+}
+
+func isAbsoluteImagePath(path string) bool {
+	if strings.HasPrefix(path, "/") || strings.HasPrefix(path, "//") {
+		return true
+	}
+	return len(path) >= 3 && path[1] == ':' && path[2] == '/' && ((path[0] >= 'A' && path[0] <= 'Z') || (path[0] >= 'a' && path[0] <= 'z'))
 }
 
 func listMarkdownNotes(vault string, limit int) []string {

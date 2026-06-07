@@ -36,7 +36,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgl1-mesa-dev libvulkan-dev libx11-dev libxcursor-dev libxrandr-dev libxi-dev libxinerama-dev libxkbcommon-dev libwayland-dev pkg-config xorg-dev
+          sudo apt-get install -y libgl1-mesa-dev libvulkan-dev libx11-dev libx11-xcb-dev libxcursor-dev libxrandr-dev libxi-dev libxinerama-dev libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev pkg-config xorg-dev
 
       - name: Test
         run: go test -buildvcs=false ./...
